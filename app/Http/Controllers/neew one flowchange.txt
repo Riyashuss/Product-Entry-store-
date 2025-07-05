@@ -1,0 +1,1446 @@
+
+
+@extends('layouts.app')
+
+@section('content')
+<nav class="navbar navbar-main navbar-expand-lg px-0 mx-2 shadow-none border-radius-xl mt-2 bg-primary">
+    <div class="container-fluid py-1 px-3">
+        @include('layouts.navbars.auth.topnav', ['title' => trans('words.homeworkflowchange')])
+        <div class="collapse navbar-collapse mt-sm-0 mt-2 me-md-0 me-sm-4" id="navbar">
+            <ul class="navbar-nav justify-content-end ms-md-auto pe-md-3 d-flex align-items-center">
+                <li class="nav-item d-flex align-items-center">
+                    @include('auth.logout')
+                </li>
+                <li class="nav-item px-3 d-flex align-items-center">
+                    <a href="#" onclick='profileSetting({{ auth()->user()->id }});'>
+                        <i class="fa fa-user me-sm-0" style="color: white;"></i>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="card mx-1 my-1 mt-1 pt-1 custom-card-height" style="min-height: 650px;" id="basic-info">
+    <div class="card-header mt-1 pt-1">
+        <h5>@lang('words.workorderflowchange')</h5>
+    </div>
+
+    <div class="card-body mt-1 pt-1">
+        <form method="POST" action="action="{{ route('workorder.update') }}"" enctype="multipart/form-data">
+            @csrf
+            <div class="row justify-content-center">
+                <div class="col-6">
+                    <label for="workarea_id" class="form-label fw-bold">@lang('words.work_area')</label>
+                    <select class="form-select form-select-lg" id="workarea_id" name="workarea_id" required>
+                        <option value="" disabled selected>@lang('words.work_area')</option>
+                        @foreach ($workareas as $workArea)
+                            <option value="{{ $workArea->workarea_id }}">{{ $workArea->workarea_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label for="model_area_id" class="form-label fw-bold">@lang('words.modelarea')</label>
+                    <select class="form-select form-select-lg" id="model_area_id" name="model_area_id" required>
+                        <option value="" disabled selected>@lang('words.modelarea')</option>
+                          <option value="0">@lang('words.no_modelarea')</option> <!-- new option for no modelarea -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="row justify-content-center mt-3">
+                <div class="col-6">
+                    <label for="workorder_id" class="form-label fw-bold">@lang('words.woname')</label>
+                    <select class="form-select" id="workorder_id" name="workorder_id" required>
+                        <option value="">@lang('words.selectworkorder')</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+
+        <div id="status-details-container" style="display:none;" class="mt-4">
+           <form method="POST" action="{{ route('workorder.update') }}" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="workorder_id" id="workorder_id" value="{{ $workorderId ?? '' }}">
+
+                <div class="row justify-content-center text-center">
+                <div class="col-md-3">
+                    <label class="form-label">@lang('words.pstep')</label>
+                    <select class="form-control" name="process_step" id="process_step">
+                        @foreach ($process as $process_step)
+                            <option value="{{ $process_step->processname }}">{{ $process_step->processname }}</option>
+                        @endforeach
+                    </select>
+                    <p id="process_step_error" class="text-danger text-xs pt-1 errmsg"></p>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">@lang('words.statuscode')</label>
+                    <select class="form-control" name="status_code" id="status_code">
+                        <option value="">Select Status Code</option>
+                    </select>
+                    <p id="status_code_error" class="text-danger text-xs pt-1 errmsg"></p>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">@lang('words.cname')</label>
+                    <select class="form-control" name="company_name" id="company_name">
+                        @foreach ($companyName as $company_name)
+                            <option value="{{ $company_name->company_name }}">{{ $company_name->company_name }}</option>
+                        @endforeach
+                    </select>
+                    <p id="company_name_error" class="text-danger text-xs pt-1 errmsg"></p>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">@lang('words.username')</label>
+                    <select class="form-control" name="assign_username" id="assign_username">
+                        <option value="">Select User</option>
+                    </select>
+                    <p id="username_error" class="text-danger text-xs pt-1 errmsg"></p>
+                </div>
+       
+
+               <div class="row mt-4 justify-content-center">
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">Update</button>
+                        <a href="" class="btn btn-secondary ms-2">Close</a>
+                    </div>
+                </div>
+            </form>
+            </div>
+        </div>   
+    </div>
+</div>
+@endsection
+@push('css')
+<style>
+    #status-details-container select {
+        font-size: 0.95rem;
+        padding: 8px;
+    }
+
+    #status-details-container label {
+        font-weight: bold;
+    }
+
+    #status-details-container .col-md-3 {
+        margin-top: 20px;
+    }
+</style>
+@endpush('css')
+@push('js')
+<script src="/assets/js/core/jquery.min.js"></script>
+<script src="/assets/js/plugins/choices.min.js"></script>
+<script src="/assets/js/plugins/sweetalert.min.js"></script>
+
+<script>
+function profileSetting(user) {
+    window.location.href = "/profileView/" + user;
+}
+
+$(document).ready(function () {
+    $('#workarea_id').on('change', function () {
+        var workareaId = $(this).val();
+        if (workareaId) {
+            $.ajax({
+                url: '{{ route("getModelAreasByWorkArea") }}',
+                type: 'GET',
+                data: { workarea_id: workareaId },
+                success: function (response) {
+                    var $modelArea = $('#model_area_id');
+                    $modelArea.empty();
+                    $modelArea.append('<option value="" disabled selected>@lang("words.modelarea")</option>');
+                    $modelArea.append('<option value="0">@lang("words.no_modelarea")</option>');
+                    response.modelAreas.forEach(function (area) {
+                        $modelArea.append('<option value="' + area.id + '">' + area.name + '</option>');
+                    });
+                },
+                error: function (xhr) {
+                    console.log('Error loading model areas:', xhr.responseText);
+                }
+            });
+        }
+    });
+
+    $('#model_area_id').on('change', function () {
+        var workareaId = $('#workarea_id').val();
+        var modelareaId = $(this).val();
+        if (modelareaId === '0') modelareaId = null;
+
+        if (workareaId) {
+            $.ajax({
+                url: '{{ route("getWorkOrdersByArea") }}',
+                type: 'GET',
+                data: {
+                    workarea_id: workareaId,
+                    model_area_id: modelareaId
+                },
+                success: function (response) {
+                    var $workorder = $('#workorder_id');
+                    $workorder.empty().append('<option value="">@lang("words.workorder")</option>');
+
+                    if (response.workorders && response.workorders.length > 0) {
+                        response.workorders.forEach(function (work) {
+                            $workorder.append('<option value="' + work.workorder_id + '">' + work.workorder_name + '</option>');
+                        });
+                    } else {
+                        $workorder.append('<option disabled>No workorders found</option>');
+                    }
+                },
+                error: function (xhr) {
+                    console.log('Error:', xhr.responseText);
+                }
+            });
+        }
+    });
+
+    $('#workorder_id').on('change', function () {
+        let workorderId = $(this).val();
+        if (workorderId) {
+            $.ajax({
+                url: '/get-workorder-status/' + workorderId,
+                type: 'GET',
+     success: function (response) {
+        // console.log(response);
+        const data = response.data;
+        const statusOptions = response.status_options;
+        const username = data.assigned_to;
+        const userList = response.user_list;
+//  console.log(username+"hjvjvyjhbh");
+    if (data) {
+        // console.log(data.assigned_to +"hjvjvyjhbh");
+        $('#process_step').val(data.processname ?? '');
+        $('#company_name').val(data.user_name ?? '');
+        // $('#username').val(data.assigned_to ?? '');
+        $('#company_name').prop('disabled', true);
+        $('#status_code').prop('disabled', true);
+
+
+         $('#status_code').empty().append('<option value="">Select Status Code</option>');
+        statusOptions.forEach(function (item) {
+            $('#status_code').append(
+                `<option value="${item.status_code}">${item.status_description}</option>`
+            );
+        });
+        $('#status_code').val(data.status_code ?? '');
+
+
+        $('#assign_username').empty().append('<option value="">Select User</option>');
+        userList.forEach(function (item) {
+            $('#assign_username').append(
+                `<option value="${item.user_id}">${item.user_name}</option>`
+            );
+        });
+
+$('#assign_username').val(data.assigned_to_user_id ?? '');
+$('#assign_username').prop('disabled', true);
+
+
+        $('#status-details-container').show();
+    } else {
+        alert("No status data found.");
+    }
+}
+
+,
+                error: function (xhr) {
+                    console.error("Status Fetch Error:", xhr.responseText);
+                    alert("Error fetching status.");
+                }
+            });
+        }
+    });
+
+    $('#process_step').on('change', function () {
+        var stepName = $(this).val();
+        var workorderId = $('#workorder_id').val();
+
+        if (stepName) {
+            $.ajax({
+                url: '{{ route("get.status.code") }}',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    process_step: stepName,
+                    workorder_id: workorderId
+                },
+                success: function (response) {
+                    var statusList = response.statusDescription;
+                    var selectedCode = response.selected_status_code;
+                    var $statusSelect = $('#status_code');
+            $('#company_name').prop('disabled', false);
+            $('#status_code').prop('disabled', false);
+            $('#assign_username').prop('disabled', false);
+                    $statusSelect.empty().append('<option value="">Select Status Code</option>');
+                    statusList.forEach(function (item) {
+                        $statusSelect.append(
+                            `<option value="${item.status_code}">${item.status_description}</option>`
+                        );
+                    });
+
+                    $statusSelect.val(selectedCode ?? '');
+                },
+                error: function () {
+                    $('#status_code').html('<option value="">Error loading status</option>');
+                }
+            });
+        } else {
+            $('#status_code').html('<option value="">Select Status Code</option>');
+        }
+    });
+
+    $('#company_name').on('change', function () {
+        var companyName = $(this).val();
+        var workorderId = $('#workorder_id').val();
+
+        if (companyName) {
+            $.ajax({
+                url: '{{ route("get-user") }}',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    company_name: companyName,
+                    workorder_id: workorderId
+                },
+                success: function (response) {
+                    var userList = response.companydescription;
+                    var selectedUserId = response.assigned_user_id;
+                    var $userSelect = $('#assign_username');
+
+                    $userSelect.empty().append('<option value="">Select user</option>');
+                    userList.forEach(function (item) {
+                        $userSelect.append(
+                            `<option value="${item.user_id}">${item.user_name}</option>`
+                        );
+                    });
+
+                    $userSelect.val(selectedUserId ?? '');
+                },
+                error: function () {
+                    $('#assign_username').html('<option value="">Error loading users</option>');
+                }
+            });
+        } else {
+            $('#assign_username').html('<option value="">Select User</option>');
+        }
+    });
+});
+</script>
+@endpush
+
+
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
+use App\Models\ListOfValues;
+use App\Models\WorkOrder;
+use App\Models\Company;
+use App\Models\WorkOrderStatus;
+use App\Models\DrawingFile;
+use App\Models\User;
+use App\Models\WorkDuration;
+use Carbon\Carbon;
+use App\Models\WorkOrderRemarks;
+
+class WorkOrderHistoryController extends Controller
+{
+    
+    public function index()
+    {
+        $user = auth()->user();
+        $defaultuserId = $user->id;
+        $admin = "Admin";
+        $roleId = $user->role_id;
+
+        $company = DB::table('wo_company')
+                ->where('default_user_id', $defaultuserId)
+                ->first();
+
+        $roleName = DB::table('wo_role')
+                ->where('id', $roleId)
+                ->value('role_name');
+
+        $workareas1 = DB::table('wo_workarea')->get();
+        $workorders1 = DB::table('wo_workorder')->get();
+        $modelareas1 = DB::table('wo_modelarea')->get();
+
+        // Initialize collections
+        $workOrderHistorys = collect();
+        $workorders = collect();
+
+        if ($admin == $roleName) {
+            // Admin gets all workorders and history
+            $workorders = WorkOrderStatus::select('workorder_id')
+                ->distinct()
+                ->join('wo_workorder', 'wo_workorder.id', '=', 'wo_workorder_status.workorder_id')
+                ->select('wo_workorder_status.workorder_id', 'wo_workorder.name')
+                ->get();
+
+            $workOrderHistorys = DB::table('wo_workorder_status as wo')
+            ->join('wo_workorder as wos', 'wos.id', '=', 'wo.workorder_id')
+            ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+            ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+            ->join('wo_user as u1', 'u1.id', '=', 'wo.assigned_by_user_id')
+            ->join('wo_user as u2', 'u2.id', '=', 'wo.assigned_to_user_id')
+            ->join('wo_workarea as wa', 'wa.id', '=', 'wos.workarea_id')
+            ->leftJoin('wo_modelarea_workorder as maw', 'maw.workorder_id', '=', 'wo.workorder_id') // changed to LEFT JOIN
+            ->leftJoin('wo_modelarea as ma', 'ma.id', '=', 'maw.modelarea_id') // changed to LEFT JOIN
+            ->leftJoin('wo_qc_remarks as qr', function ($join) {
+                $join->on('qr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qr.status_code', '=', 'wo.status_code');
+            })
+            ->leftJoin('wo_workorder_remarks as qrr', function ($join) {
+                $join->on('qrr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qrr.status_code', '=', 'wo.status_code');
+            })
+            ->leftJoin('fd_pktupload_version as qrrr', function ($join) {
+                $join->on('qrrr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qrrr.status_code', '=', 'wo.status_code');
+            })
+            ->select(
+                'wo.id as workorderid',
+                'wo.assigned_at as date',
+                'wos.name as workordername',
+                'ps.processname as processname',
+                'ss.description as description',
+                DB::raw('COALESCE(qr.remarks, "") as remarks'),
+                'u1.username as assignedBy',
+                'u2.username as assignedTo',
+                'wa.workarea_name as workarea_name',
+                DB::raw('COALESCE(ma.name, "") as modelarea_name') // ensure empty string if null
+            )
+            ->orderBy('wo.id')
+            ->distinct()
+            ->get();
+
+            } else {
+                // Non-admin users
+                if ($defaultuserId) {
+                    $defaultuser = $company->default_user_id;
+                    Log::info("work default user ".$defaultuser);
+
+                    if ($defaultuserId == $defaultuser) {
+                        $companyId = $company->id;
+
+                        // Retrieve all users associated with the company
+                        $userIds = DB::table('wo_user')
+                            ->where('companyid', $companyId)
+                            ->pluck('id');
+
+                        $workorders = WorkOrderStatus::select('workorder_id')
+                            ->distinct()
+                            ->join('wo_workorder', 'wo_workorder.id', '=', 'wo_workorder_status.workorder_id')
+                            ->select('wo_workorder_status.workorder_id', 'wo_workorder.name')
+                            ->get();
+
+                    $workOrderHistorys = DB::table('wo_workorder_status as wo')
+            ->join('wo_workorder as wos', 'wos.id', '=', 'wo.workorder_id')
+            ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+            ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+            ->join('wo_user as u1', 'u1.id', '=', 'wo.assigned_by_user_id')
+            ->join('wo_user as u2', 'u2.id', '=', 'wo.assigned_to_user_id')
+            ->join('wo_workarea as wa', 'wa.id', '=', 'wos.workarea_id')
+            ->leftJoin('wo_modelarea_workorder as maw', 'maw.workorder_id', '=', 'wo.workorder_id') // changed to LEFT JOIN
+            ->leftJoin('wo_modelarea as ma', 'ma.id', '=', 'maw.modelarea_id') // changed to LEFT JOIN
+            ->leftJoin('wo_qc_remarks as qr', function ($join) {
+                $join->on('qr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qr.status_code', '=', 'wo.status_code');
+            })
+            ->leftJoin('wo_workorder_remarks as qrr', function ($join) {
+                $join->on('qrr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qrr.status_code', '=', 'wo.status_code');
+            })
+            ->leftJoin('fd_pktupload_version as qrrr', function ($join) {
+                $join->on('qrrr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qrrr.status_code', '=', 'wo.status_code');
+            })
+            ->select(
+                    'wo.id as workorderid',
+                    'wo.assigned_at as date',
+                    'wos.name as workordername',
+                    'ps.processname as processname',
+                    'ss.description as description',
+                    DB::raw('COALESCE(qr.remarks, "") as remarks'),
+                    'u1.username as assignedBy',
+                    'u2.username as assignedTo',
+                    'wa.workarea_name as workarea_name',
+                    DB::raw('COALESCE(maw.modelarea_id, 0) as modelarea_id'), // <<--- FIX
+                    DB::raw('COALESCE(ma.name, "") as modelarea_name')
+                )
+            ->orderBy('wo.id')
+            ->distinct()
+            ->get();
+
+
+                    return view('home_workorderhistory', compact('workOrderHistorys','workorders','workareas1','workorders1','modelareas1'));
+                }
+            }
+        }
+
+        return view('home_workorderhistory', compact('workOrderHistorys', 'workorders','workareas1','workorders1','modelareas1'));
+    }
+
+
+    public function fetchWorkOrderHistoryData(Request $request)
+    {
+        $user = auth()->user();
+        $defaultuserId = $user->id;
+        $admin = "Admin";
+        $roleId = $user->role_id;
+
+        $company = DB::table('wo_company')
+            ->where('default_user_id', $defaultuserId)
+            ->first();
+
+        $roleName = DB::table('wo_role')
+            ->where('id', $roleId)
+            ->value('role_name');
+
+        $workareas1 = DB::table('wo_workarea')->get();
+        $workorders1 = DB::table('wo_workorder')->get();
+        $modelareas1 = DB::table('wo_modelarea')->get();
+
+        $workOrderHistorys = collect();
+        $workorders = collect();
+
+        $workarea_id = $request->input('workarea_id');
+        $workorder_id = $request->input('workorder_id');
+        $modelarea_id = $request->input('modelarea_id');
+
+        if ($roleName === $admin) {
+            $workorders = WorkOrderStatus::select('wo_workorder_status.workorder_id', 'wo_workorder.name')
+                ->distinct()
+                ->join('wo_workorder', 'wo_workorder.id', '=', 'wo_workorder_status.workorder_id')
+                ->get();
+
+            $query = DB::table('wo_workorder_status as wo')
+                ->join('wo_workorder as wos', 'wos.id', '=', 'wo.workorder_id')
+                ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+                ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+                ->join('wo_user as u1', 'u1.id', '=', 'wo.assigned_by_user_id')
+                ->join('wo_user as u2', 'u2.id', '=', 'wo.assigned_to_user_id')
+                ->join('wo_workarea as wa', 'wa.id', '=', 'wos.workarea_id')
+                ->leftJoin('wo_modelarea_workorder as maw', 'maw.workorder_id', '=', 'wo.workorder_id')
+                ->leftJoin('wo_modelarea as ma', 'ma.id', '=', 'maw.modelarea_id')
+                ->leftJoin('wo_qc_remarks as qr', function ($join) {
+                    $join->on('qr.workorder_id', '=', 'wo.workorder_id')
+                        ->on('qr.status_code', '=', 'wo.status_code');
+                })
+                ->leftJoin('wo_workorder_remarks as qrr', function ($join) {
+                    $join->on('qrr.workorder_id', '=', 'wo.workorder_id')
+                        ->on('qrr.status_code', '=', 'wo.status_code');
+                })
+                ->leftJoin('fd_pktupload_version as qrrr', function ($join) {
+                    $join->on('qrrr.workorder_id', '=', 'wo.workorder_id')
+                        ->on('qrrr.status_code', '=', 'wo.status_code');
+                })
+                ->select(
+                    'wo.id as workorderid',
+                    'wo.assigned_at as date',
+                    'wos.name as workordername',
+                    'ps.processname as processname',
+                    'ss.description as description',
+                    DB::raw('COALESCE(qr.remarks, "") as remarks'),
+                    'u1.username as assignedBy',
+                    'u2.username as assignedTo',
+                    'wa.workarea_name as workarea_name',
+                    DB::raw('COALESCE(ma.name, "") as modelarea_name')
+                )
+                ->distinct();
+
+            // Apply filters
+            if ($workarea_id) {
+                $query->where('wos.workarea_id', $workarea_id);
+            }
+            if ($workorder_id) {
+                $query->where('wo.workorder_id', $workorder_id);
+            }
+            if ($modelarea_id) {
+                $query->where('ma.id', $modelarea_id);
+            }
+
+            $workOrderHistorys = $query->orderBy('wo.id')->get();
+        } else {
+            if ($defaultuserId && $company && $defaultuserId == $company->default_user_id) {
+                $companyId = $company->id;
+
+                $userIds = DB::table('wo_user')
+                    ->where('companyid', $companyId)
+                    ->pluck('id');
+
+                $workorders = WorkOrderStatus::select('wo_workorder_status.workorder_id', 'wo_workorder.name')
+                    ->distinct()
+                    ->join('wo_workorder', 'wo_workorder.id', '=', 'wo_workorder_status.workorder_id')
+                    ->get();
+
+                $query = DB::table('wo_workorder_status as wo')
+                    ->join('wo_workorder as wos', 'wos.id', '=', 'wo.workorder_id')
+                    ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+                    ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+                    ->join('wo_user as u1', 'u1.id', '=', 'wo.assigned_by_user_id')
+                    ->join('wo_user as u2', 'u2.id', '=', 'wo.assigned_to_user_id')
+                    ->join('wo_workarea as wa', 'wa.id', '=', 'wos.workarea_id')
+                    ->leftJoin('wo_modelarea_workorder as maw', 'maw.workorder_id', '=', 'wo.workorder_id')
+                    ->leftJoin('wo_modelarea as ma', 'ma.id', '=', 'maw.modelarea_id')
+                    ->leftJoin('wo_qc_remarks as qr', function ($join) {
+                        $join->on('qr.workorder_id', '=', 'wo.workorder_id')
+                            ->on('qr.status_code', '=', 'wo.status_code');
+                    })
+                    ->leftJoin('wo_workorder_remarks as qrr', function ($join) {
+                        $join->on('qrr.workorder_id', '=', 'wo.workorder_id')
+                            ->on('qrr.status_code', '=', 'wo.status_code');
+                    })
+                    ->leftJoin('fd_pktupload_version as qrrr', function ($join) {
+                        $join->on('qrrr.workorder_id', '=', 'wo.workorder_id')
+                            ->on('qrrr.status_code', '=', 'wo.status_code');
+                    })
+                    ->select(
+                        'wo.id as workorderid',
+                        'wo.assigned_at as date',
+                        'wos.name as workordername',
+                        'ps.processname as processname',
+                        'ss.description as description',
+                        DB::raw('COALESCE(qr.remarks, "") as remarks'),
+                        'u1.username as assignedBy',
+                        'u2.username as assignedTo',
+                        'wa.workarea_name as workarea_name',
+                        DB::raw('COALESCE(ma.name, "") as modelarea_name')
+                    )
+                    ->distinct();
+
+                // Apply filters
+                if ($workarea_id) {
+                    $query->where('wos.workarea_id', $workarea_id);
+                }
+                if ($workorder_id) {
+                    $query->where('wo.workorder_id', $workorder_id);
+                }
+                if ($modelarea_id) {
+                    $query->where('ma.id', $modelarea_id);
+                }
+
+                $workOrderHistorys = $query->orderBy('wo.id')->get();
+            }
+        }
+
+        // Handle AJAX request response
+        if ($request->ajax()) {
+            return response()->json([
+                'workOrders' => $workOrderHistorys
+            ]);
+        }
+
+        // return view('home_workorderhistory', compact('workOrderHistorys', 'workorders'));
+    }
+
+
+
+
+
+
+
+    public function viewquery($id)
+    {
+        $workOrder = DB::table('wo_qc_remarks as wos')
+            ->join('wo_workorder as wo', 'wos.workorder_id', '=', 'wo.id')
+            ->where('wos.workorder_id', $id)
+            ->select('wos.remarks', 'wo.name')
+            ->orderBy('wos.id', 'desc')
+            ->first();
+    
+        return view('Viewrejectqcmap', compact('workOrder'));
+    }
+
+    public function viewQcRemarks(Request $request)
+    {
+        $id = $request->workOrderId;
+
+        $workOrder = DB::table('wo_qc_remarks as wos')
+                ->join('wo_workorder as wo', 'wos.workorder_id', '=', 'wo.id')
+                ->where('wos.workorder_id', $id)
+                ->select('wos.remarks', 'wo.name')
+                ->orderBy('wos.id', 'desc')
+                ->first();
+    
+        return response()->json(array('success' => true,'workOrder_name' => $workOrder->name, 'workorder_remarks' =>$workOrder->remarks),200); 
+    }
+
+    public function viewStatus(Request $request)
+    {
+        Log::info($request->all()); // Log incoming data to check
+    
+        $modelId = $request->modelIds;
+        $workareaId = $request->workareaIds;
+    
+        // Retrieve all workorder_ids for the given modelarea_id
+        $workOrdersData = DB::table('wo_modelarea_workorder')
+            ->select('workorder_id')
+            ->where('modelarea_id', $modelId)
+            ->where('workarea_id', $workareaId)
+            ->get();
+    
+        Log::info('Work Orders Data:', $workOrdersData->toArray());
+    
+        if ($workOrdersData->isEmpty()) {
+            Log::info('No work orders found for modelarea_id: ' . $modelId);
+            return response()->json([
+                'success' => false,
+                'message' => 'No work orders found for the given model area.'
+            ]);
+        }
+    
+        $workOrdersDetails = [];
+    
+        // Loop through each workorder_id and retrieve the corresponding work order details
+        foreach ($workOrdersData as $workOrder) {
+            // Check if work order exists in wo_modelarea_status
+            $modelAreaStatus = DB::table('wo_modelarea_status')
+                ->where('workorder_id', $workOrder->workorder_id)
+                ->where('modelarea_id', $modelId)
+                ->first(['status_code']); // Retrieve status_code if exists
+    
+            Log::info('Model Area Status:', $modelAreaStatus ? (array) $modelAreaStatus : ['message' => 'No record found']);
+    
+            if ($modelAreaStatus) {
+                // Retrieve work order details from wo_modelarea_status if found
+                $workOrderDetails = DB::table('wo_modelarea_status')
+                    ->join('wo_status', 'wo_modelarea_status.status_code', '=', 'wo_status.code') // Join with wo_status
+                    ->join('wo_user', 'wo_modelarea_status.assigned_to_user_id', '=', 'wo_user.id') // Join with wo_user
+                    ->join('wo_workorder', 'wo_modelarea_status.workorder_id', '=', 'wo_workorder.id')
+                    ->select(
+                        'wo_workorder.name as workOrder_name',
+                        'wo_status.description as status_description', // Status description
+                        'wo_user.username as assigned_username' // Assigned user username
+                    )
+                    ->where('wo_modelarea_status.workorder_id', $workOrder->workorder_id)
+                    ->where('wo_modelarea_status.modelarea_id', $modelId)
+                    ->first();
+            } else {
+                // Retrieve work order details from wo_workorder if not found in wo_modelarea_status
+                $workOrderDetails = DB::table('wo_workorder')
+                    ->join('wo_status', 'wo_workorder.status_code', '=', 'wo_status.code') // Join with wo_status
+                    ->join('wo_user', 'wo_workorder.assigned_to_user_id', '=', 'wo_user.id') // Join with wo_user
+                    ->select(
+                        'wo_workorder.name as workOrder_name',
+                        'wo_status.description as status_description', // Status description
+                        'wo_user.username as assigned_username' // Assigned user username
+                    )
+                    ->where('wo_workorder.id', $workOrder->workorder_id)
+                    ->first();
+            }
+    
+            if ($workOrderDetails) {
+                $workOrdersDetails[] = $workOrderDetails;
+                Log::info('Work Order Details:', (array) $workOrderDetails);
+            } else {
+                Log::info('No details found for work order_id: ' . $workOrder->workorder_id);
+            }
+        }
+    
+        return response()->json([
+            'success' => true,
+            'workOrders' => $workOrdersDetails
+        ]);
+    }
+     
+    
+    public function viewQcmodelRemarks(Request $request)
+    {
+        Log::info($request);
+        $modelareaId = $request->workOrderId;
+
+        $workOrderData = DB::table('wo_modelarea_status')->where('id', $modelareaId)->first();
+
+        if (!$workOrderData) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No work order data found.',
+            ], 404);
+        }
+
+        $workOrderId = $workOrderData->workorder_id;
+        $workOrder_name = $workOrderData->model_workorder_name;
+
+        $workOrder = DB::table('wo_qc_remarks as wos')
+                ->join('wo_workorder as wo', 'wos.workorder_id', '=', 'wo.id')
+                ->where('wos.workorder_id', $workOrderId)
+                ->select('wos.remarks', 'wo.name')
+                ->orderBy('wos.id', 'desc')
+                ->first();
+
+        if (!$workOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No remarks found for this work order.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'workOrder_name' => $workOrder_name,
+            'workorder_remarks' => $workOrder->remarks,
+        ], 200); 
+    }
+
+    public function viewClarificationRemarks(Request $request)
+    {
+        $id = $request->workOrderId;
+
+        // $companies= Company::latest()->get();
+        // $workOrder = WorkOrder::where('id', $id)->first();
+        // $queries = Queries::where('workorder_id', $id)
+        //          ->join('wo_user as u', 'u.id', '=', 'wo_query.assigned_by_user_id')
+        //          ->select('wo_query.*', 'u.*')
+        //          ->latest('wo_query.id')
+        //          ->first();
+
+                 $workOrder = DB::table('wo_query as woq')
+                 ->join('wo_workorder as wo', 'woq.workorder_id', '=', 'wo.id')
+                 ->join('wo_user as wu', 'woq.assigned_by_user_id', '=', 'wu.id')
+                 ->where('woq.workorder_id', $id)
+                 ->select('woq.query_description', 'wo.name','wu.username')
+                 ->orderBy('woq.id', 'desc')
+                 ->first();
+        return response()->json(array('success' => true,'workOrdername' => $workOrder->name, 'raisedby' =>$workOrder->username, 'clarification' =>$workOrder->query_description),200); 
+    }
+
+    public function viewReassignRemarks(Request $request)
+    {
+        $id = $request->workOrderId;
+
+        $workOrder = DB::table('wo_workorder_remarks as wos')
+                ->join('wo_workorder as wo', 'wos.workorder_id', '=', 'wo.id')
+                ->where('wos.workorder_id', $id)
+                ->select('wos.remarks', 'wo.name')
+                ->orderBy('wos.id', 'desc')
+                ->first();
+    
+        return response()->json(array('success' => true,'workOrder_name' => $workOrder->name, 'workorder_remarks' =>$workOrder->remarks),200); 
+    }
+
+    public function index_workorders()
+    {
+        $workorders= WorkOrderStatus::latest()->get(); 
+        $users = User::all();
+        $userroles = UserRole::all();
+        $roles = Role::all();
+        return view('laravel.userwork.index', 
+        [
+            'companies' => $companies,
+            'users' => $users,
+            'userroles' => $userroles,
+            'roles' => $roles,
+        ]);
+    }    
+    
+    public function getUsers(Request $request)
+    {
+        $workorderid = $request->input('workorderid');
+        
+        $workOrderHistorys = DB::table('wo_workorder_status as wo')
+            ->join('wo_workorder as wos', 'wos.id', '=', 'wo.workorder_id')
+            ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+            ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+            ->join('wo_user as u1', 'u1.id', '=', 'wo.assigned_by_user_id')
+            ->join('wo_user as u2', 'u2.id', '=', 'wo.assigned_to_user_id')
+            ->leftJoin('wo_qc_remarks as qr', function ($join) {
+                $join->on('qr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qr.status_code', '=', 'wo.status_code');
+            })
+            ->leftJoin('wo_workorder_remarks as qrr', function ($join) {
+                $join->on('qrr.workorder_id', '=', 'wo.workorder_id')
+                    ->on('qrr.status_code', '=', 'wo.status_code');
+            })
+            ->leftJoin('fd_pktupload_version as qrrr', function ($join) {
+                $join->on('qrrr.workorder_id', '=', 'wo.workorder_id')
+                ->on('qrrr.status_code', '=', 'wo.status_code');
+            })
+            ->where('wo.workorder_id', '=', $workorderid)
+            ->select(
+                'wo.id as workorderid',
+                'wo.assigned_at as date',
+                'wos.name as workordername',
+                'ps.processname as processname',
+                'ss.description as description',
+                DB::raw('COALESCE(qr.remarks, "") as remarks'),
+                // DB::raw('COALESCE(qrr.remarks, "") as workorder_remarks'),
+                // DB::raw('COALESCE(qrrr.remarks, "") as pktupload_remarks'),
+                'u1.username as assignedBy',
+                'u2.username as assignedTo'
+            )
+            ->orderBy('wo.id')
+            ->get();
+
+        return response()->json(['success' => true, 'workorderhistorys' => $workOrderHistorys], 200);
+    }
+
+    public function home_workflowchange()
+    {
+        $user = auth()->user();
+        $defaultuserId = $user->id;
+        $admin = "Admin";
+        $roleId = $user->role_id;
+    
+        $workareas = DB::table('wo_workarea')
+        ->select('id as workarea_id', 'workarea_name')
+        ->get();
+
+        $modelareas = DB::table('wo_modelarea')
+        ->select('id as modelarea_id', 'name as modelarea_name')
+        ->get();
+
+        $company = DB::table('wo_company')
+                ->where('default_user_id', $defaultuserId)
+                ->first();
+        $companyName = DB::table('wo_company')
+                 ->get();
+        $userName = DB::table('wo_user')
+                 ->get();
+
+        $process = DB::table('wo_processstep')
+                 ->select('*')
+                 ->get()
+                 ->slice(0, -2);
+
+        $status = DB::table('wo_status')
+                 ->select('*')
+                 ->where('description', 'not like', 'model%')
+                 ->get();
+
+        $roleName = DB::table('wo_role')
+                ->where('id', $roleId)
+                ->value('role_name');
+        Log::info($companyName);
+        // Initialize the variables
+        $workOrderHistorys = collect();
+        $workorders = collect();
+    
+        if ($admin == $roleName) {
+            $workorders = WorkOrderStatus::select('workorder_id')
+                ->distinct()
+                ->join('wo_workorder', 'wo_workorder.id', '=', 'wo_workorder_status.workorder_id')
+                ->select('wo_workorder_status.workorder_id', 'wo_workorder.name')
+                ->get();
+    
+            $workOrderHistorys = DB::table('wo_workorder_status as wo')
+                ->join('wo_workorder as wos', 'wos.id', '=', 'wo.workorder_id')
+                ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+                ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+                ->join('wo_user as u1', 'u1.id', '=', 'wo.assigned_by_user_id')
+                ->join('wo_user as u2', 'u2.id', '=', 'wo.assigned_to_user_id')
+                ->select('wo.id as workorderid', 'wo.assigned_at as date', 'wos.name as workordername',
+                    'ps.processname as processname', 'ss.description as description',
+                    'u1.username as assignedBy', 'u2.username as assignedTo')
+                ->orderBy('wo.id')
+                ->get();
+        }
+       
+    
+        $workOrderHistory = $workOrderHistorys;
+        //Log::info("histity".$workOrderHistory );
+        return view('home_workflowchange', compact('workOrderHistory', 'workorders','process','status','companyName','userName','workareas', 'modelareas'));
+    }
+
+    
+  
+    public function getWorkOrderDetails(Request $request)
+    {
+        $workorderId = $request->input('workorder_id');
+    
+       $workOrderDetails = DB::table('wo_workorder as wo')
+    ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+    ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+    ->join('wo_user as us', 'us.id', '=', 'wo.assigned_to_user_id')
+    ->join('wo_company as comp', 'comp.id', '=', 'us.companyid') // Join with wo_company table
+    ->where('wo.id', '=', $workorderId)
+    ->select('wo.name as workordername', 'ps.processname', 'ss.description', 'us.username', 'comp.company_name') // Select company_name from wo_company
+    ->first();
+    
+        Log::info('work details ' . json_encode($workOrderDetails));
+    
+         return response()->json(['success' => true, 'workOrderDetails' => $workOrderDetails], 200);
+    }
+    public function getUsersByCompany(Request $request)
+    {
+        $companyName = $request->input('company_name');
+        // Log::info($companyName);
+        $users = DB::table('wo_user as us')
+            ->join('wo_company as co', 'co.id', '=', 'us.companyid')
+            ->where('co.company_name', '=', $companyName)
+            ->select('us.username')
+            ->get();
+        // Log::info($users);
+        return response()->json(['success' => true, 'users' => $users], 200);
+    }
+    public function getStatusCodesByProcessStep(Request $request)
+    {
+        $processStepId = $request->input('process_step');
+
+        Log::info($processStepId . ' processstepid');
+
+        $statusCodes = DB::table('wo_process_status as psc')
+            ->join('wo_processstep as ps', 'ps.id', '=', 'psc.process_step')
+            ->join('wo_status as sc', 'sc.code', '=', 'psc.status_code') 
+            ->where('ps.processname', '=', $processStepId)
+            ->select('psc.status_code', 'sc.description') 
+            ->get();
+
+        return response()->json(['success' => true, 'statusCodes' => $statusCodes], 200);
+    }
+
+    public function updateWorkflow(Request $request)
+    {
+       try
+        {
+            $workOrder = $request->workOrderId;
+            $assignedToUser = $request->assignedToUserId;
+            $processstepId=$request->processStep;
+            $statusCodeId=$request->statusCode;
+            $company=$request->companyName;
+            $workOrderId = DB::table('wo_workorder')->where('name',  $workOrder)->first()->id;
+                $assignedToUserId = DB::table('wo_user')->where('username',  $assignedToUser)->first()->id;
+                $processId = DB::table('wo_processstep')->where('processname',  $processstepId)->first()->id;
+                $statusCode = DB::table('wo_status')->where('description',  $statusCodeId)->first()->code;
+            
+            $workOrderStatus = new WorkOrderStatus();
+            $workOrderStatus->workorder_id = $workOrderId;
+            $workOrderStatus->processstep_id = $processId;
+            $workOrderStatus->status_code = $statusCode;
+            $workOrderStatus->assigned_by_user_id = auth()->user()->id;
+            $workOrderStatus->assigned_to_user_id = $assignedToUserId;
+            $workOrderStatus->assigned_at = Carbon::now();
+            $workOrderStatus->save();
+            
+            $workOrder = WorkOrder::where('id', $workOrderId)->first();
+            $workOrder->processstep_id = $processId;
+            $workOrder->status_code = $statusCode;
+            $workOrder->assigned_to_user_id = $assignedToUserId;
+            $workOrder->update();
+            
+            return response()->json(array('success' => true),200);
+        }
+        catch (Exception $e)
+        {
+            return response()->json(array('success' => false,'message' => $e->getMessage()),200); 
+        }
+    }
+
+    public function checkWorkOrderNames(Request $request)
+    {
+        $workOrderName = $request->input('workOrderName');
+        
+        $workOrder = WorkOrder::where('name', $workOrderName)->first();
+    
+        if ($workOrder) {
+            return response()->json(array('result' => true, 'workorder_id' => $workOrder->id), 200);
+        } else {
+            return response()->json(array('result' => false), 200);
+        }
+    }
+
+   public function elements_management()
+    {
+        $workorders = DB::table('wo_workorder')
+        ->select('*')->get();
+
+       
+        return view('home_element', compact( 'workorders'));
+    }
+
+    public function deleteEntityDetails(Request $request)
+    {
+        $workorderId = $request->input('workorder_id');
+    
+        try {
+            DB::beginTransaction();
+    
+            // Fetch all entity IDs based on the workorder ID
+            $entityIds = DB::table('en_entity')
+                            ->where('workorder_id', $workorderId)
+                            ->pluck('id')
+                            ->toArray();
+    
+            if (!empty($entityIds)) {
+                // Delete related records from other tables
+                DB::table('en_text')->whereIn('entity_id', $entityIds)->delete();
+                DB::table('en_point')->whereIn('entity_id', $entityIds)->delete();
+                DB::table('en_mline')->whereIn('entity_id', $entityIds)->delete();
+                DB::table('en_line')->whereIn('entity_id', $entityIds)->delete();
+                DB::table('en_circle')->whereIn('entity_id', $entityIds)->delete();
+                DB::table('en_block')->whereIn('entity_id', $entityIds)->delete();
+    
+                // Finally, delete records from the en_entity table
+                DB::table('en_entity')->where('workorder_id', $workorderId)->delete();
+            }
+    
+            DB::commit();
+    
+            return response()->json(array('success' => true,'message' => trans('words.elementdeletedsuccessfully')), 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getWorkOrdersByWorkArea(Request $request)
+    {
+        $workareaId = $request->input('workarea_id');
+        // Log::info("hello".$workareaId);
+        $workOrders = DB::table('wo_workorder')
+            ->join('wo_workarea', 'wo_workorder.workarea_id', '=', 'wo_workarea.id')
+            ->where('wo_workorder.workarea_id', $workareaId)
+            ->select('wo_workorder.id', 'wo_workorder.name')
+            ->get();
+            Log::info("hello".$workOrders);
+        return response()->json($workOrders);
+    }
+    
+    public function getModelAreasByWorkArea(Request $request)
+	{
+		// Log::info("getModelAreaAndWorkOrdersByWorkArea".$request);
+		// Validate the workarea_id
+		$request->validate([
+			'workarea_id' => 'required|exists:wo_workarea,id',
+		]);
+
+		// Fetch model areas based on the selected workarea_id
+		$modelAreas = DB::table('wo_modelarea')
+			->where('workarea_id', $request->workarea_id) // Assuming there's a workarea_id in wo_modelarea
+			->get(['id', 'name']); // Get modelarea id and name
+
+		// Return both model areas and work orders as JSON
+		return response()->json([
+			'modelAreas' => $modelAreas
+		]);
+	}
+            public function getWorkOrdersByArea(Request $request)
+            {
+                try {
+                    $workareaId = $request->input('workarea_id');
+                    $modelareaId = $request->input('model_area_id');
+
+                    Log::info('Fetching workorders by area', [
+                        'workarea_id' => $workareaId,
+                        'model_area_id' => $modelareaId
+                    ]);
+
+                    if (!$workareaId) {
+                        return response()->json(['workorders' => []]);
+                    }
+
+                    // 1. Try to get workorders by workarea + modelarea if modelarea provided
+                    if ($modelareaId) {
+                        $workorders = DB::table('wo_modelarea_workorder as map')
+                            ->join('wo_workorder as wo', 'map.workorder_id', '=', 'wo.id')
+                            ->where('map.workarea_id', $workareaId)
+                            ->where('map.modelarea_id', $modelareaId)
+                            ->select('map.workorder_id', 'wo.name as workorder_name')
+                            ->orderBy('wo.name')
+                            ->get();
+
+                        if ($workorders->isNotEmpty()) {
+                            return response()->json(['workorders' => $workorders]);
+                        }
+                    }
+
+                    // 2. Fallback: get workorders by workarea from workorder_status table (distinct workorders)
+                    $workordersFallback = DB::table('wo_workorder_status as ws')
+                        ->join('wo_workorder as wo', 'ws.workorder_id', '=', 'wo.id')
+                        ->where('wo.workarea_id', $workareaId)
+                        ->select('wo.id as workorder_id', 'wo.name as workorder_name')
+                        ->distinct()
+                        ->orderBy('wo.name')
+                        ->get();
+
+                    return response()->json(['workorders' => $workordersFallback]);
+
+                } catch (\Exception $e) {
+                    Log::error('Error fetching workorders by area: ' . $e->getMessage());
+                    return response()->json(['error' => 'Server error'], 500);
+                }
+            }
+
+
+
+    public function fetchWorkOrderData(Request $request)
+    {
+        $user = auth()->user();
+        $defaultuserId = $user->id;
+        $roleId = $user->role_id;
+
+        $roleName = DB::table('wo_role')
+                    ->where('id', $roleId)
+                    ->value('role_name');
+
+        $admin = "Admin";
+        $isAdmin = ($roleName === $admin);
+
+        $company = DB::table('wo_company')
+                    ->where('default_user_id', $defaultuserId)
+                    ->first();
+
+        $today = Carbon::today(date_default_timezone_get())->toDateString();
+        $yesterday = Carbon::yesterday(date_default_timezone_get())->toDateString();
+
+        $workorderCount = DB::table('wo_workorder')
+                    ->where('assigned_to_user_id', $defaultuserId)
+                    ->where(function ($query) use ($today, $yesterday) {
+                        $query->whereDate('created_date', $today)
+                            ->orWhereDate('created_date', $yesterday);
+                    })
+                    ->count();
+
+        $notifyworkOrders = DB::table('wo_workorder')
+                    ->join('wo_processstep', 'wo_workorder.processstep_id', '=', 'wo_processstep.id')
+                    ->where('wo_workorder.assigned_to_user_id', $defaultuserId)
+                    ->where(function ($query) use ($today, $yesterday) {
+                        $query->whereDate('wo_workorder.created_date', $today)
+                            ->orWhereDate('wo_workorder.created_date', $yesterday);
+                    })
+                    ->select('wo_workorder.*', 'wo_processstep.processname')
+                    ->get();
+
+        $groupedNotifications = [];
+        foreach ($notifyworkOrders as $workOrder) {
+            $processName = $workOrder->processname;
+            if (!isset($groupedNotifications[$processName])) {
+                $groupedNotifications[$processName] = 1;
+            } else {
+                $groupedNotifications[$processName]++;
+            }
+        }
+
+        $workarea_id = $request->input('workarea_id');
+        $workorder_id = $request->input('workorder_id');
+        $modelarea_id = $request->input('modelarea_id'); // optional
+
+        if ($isAdmin) {
+            $query = DB::table('wo_workorder as wo')
+                ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+                ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+                ->join('wo_workarea as wa', 'wa.id', '=', 'wo.workarea_id')
+                ->join('wo_user as u', 'u.id', '=', 'wo.assigned_to_user_id')
+                ->join('wo_company as c', 'c.id', '=', 'u.companyid')
+                ->leftJoin('wo_modelarea_workorder as maw', function ($join) use ($workarea_id) {
+                    $join->on('maw.workorder_id', '=', 'wo.id')
+                        ->where('maw.workarea_id', '=', $workarea_id);
+                })
+                ->leftJoin('wo_modelarea as ma', 'ma.id', '=', 'maw.modelarea_id')
+                ->where('wo.id', $workorder_id);
+        } else {
+            $query = DB::table('wo_workorder as wo')
+                ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+                ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+                ->join('wo_workarea as wa', 'wa.id', '=', 'wo.workarea_id')
+                ->join('wo_user as u', 'u.id', '=', 'wo.assigned_to_user_id')
+                ->join('wo_company as c', 'c.id', '=', 'u.companyid')
+                ->leftJoin('wo_modelarea_workorder as maw', function ($join) use ($workarea_id) {
+                    $join->on('maw.workorder_id', '=', 'wo.id')
+                        ->where('maw.workarea_id', '=', $workarea_id);
+                })
+                ->leftJoin('wo_modelarea as ma', 'ma.id', '=', 'maw.modelarea_id')
+                ->where('wo.id', $workorder_id)
+                ->where('wo.assigned_to_user_id', $defaultuserId);
+        }
+
+        if (!empty($modelarea_id)) {
+            $query->where('maw.modelarea_id', $modelarea_id);
+        }
+
+        $results = $query->select(
+                'wo.id as workorderid',
+                        'wo.name as workordername',
+                        'ps.processname as processname',
+                        'ss.description as status_description',
+                        'ss.code as status_code',
+                        'wa.workarea_name as workarea_name',
+                        'u.username as username',
+                        'c.company_name as companyname',
+                        'maw.modelarea_id as modelarea_id',
+                        'ma.name as modelarea_name' ,// 🔁 Select modelarea name
+                DB::raw("'" . $roleName . "' as role_name"),
+                DB::raw($isAdmin ? '1 as is_admin' : '0 as is_admin')
+            )
+            ->distinct()
+            ->get();
+
+        return response()->json([
+            'workOrders' => $results,
+            'workorderCount' => $workorderCount,
+            'notifyworkOrders' => $notifyworkOrders,
+            'groupedNotifications' => $groupedNotifications,
+            'roleName' => $roleName,
+            'company'=> $company
+        ]);
+    }
+
+
+
+public function getWorkOrderStatusById($workorder_id)
+{
+
+     $user = auth()->user();
+        $defaultuserId = $user->id;
+        $admin = "Admin";
+        $roleId = $user->role_id;
+        $statusOptions = DB::table('wo_status')->select('code as status_code', 'description as status_description')->get();
+$userList = DB::table('wo_user')->select('id as user_id', 'username as user_name')->get();
+
+$statusData = DB::table('wo_workorder_status as wo')
+    ->where('wo.workorder_id', $workorder_id)
+    ->join('wo_processstep as ps', 'ps.id', '=', 'wo.processstep_id')
+    ->join('wo_process_status as pss','pss.process_step','=','ps.id')
+    ->join('wo_status as ss', 'ss.code', '=', 'wo.status_code')
+    ->leftJoin('wo_user as u1', 'u1.id', '=', 'wo.assigned_by_user_id')
+    ->leftJoin('wo_user as u2', 'u2.id', '=', 'wo.assigned_to_user_id')
+    ->join('wo_company as c', 'c.id','=','u1.companyid')
+   ->select(
+    'wo.id as workorder_status_id',
+    'wo.assigned_at as assigned_at',
+    'ps.processname',
+    'ss.code as status_code',
+    'ss.description as status_description',
+    'u1.username as assigned_by',
+    'u2.id as assigned_to_user_id',           // <-- Add this line
+    'u2.username as assigned_to',
+    'c.company_name as user_name'
+)
+
+    ->orderBy('wo.assigned_at','desc')
+    ->first();
+
+if ($statusData) {
+    return response()->json([
+        'data' => $statusData,
+        'status_options' => $statusOptions,
+  'user_list' => $userList
+    ]);
+}
+
+    Log::info('Work Order Status Data:', (array) $statusData);
+
+    if ($statusData) {
+        return response()->json(['data' => $statusData]);
+    } else {
+        Log::warning('No status data found for workorder_id: ' . $workorder_id);
+        return response()->json(['data' => null, 'message' => 'No status found.'], 404);
+    }
+     }
+public function wo_process_status(Request $request)
+                {
+                    $processname = $request->input('process_step');
+                    $workorderId = $request->input('workorder_id');
+
+                    // Get process_step ID
+                    $process_id = DB::table('wo_processstep')
+                        ->where('processname', $processname)
+                        ->value('id');
+
+                    // Get list of status codes for that process step
+                    $description = DB::table('wo_process_status as ps')
+                        ->join('wo_processstep as pa', 'pa.id', '=', 'ps.process_step')
+                        ->join('wo_status as ws', 'ws.code', '=', 'ps.status_code')
+                    
+                        ->where('ps.process_step', $process_id)
+                        ->select(
+                            'ws.id as status_id',
+                            'ws.code as status_code',
+                            'ws.description as status_description',
+                                 
+                        )
+                        ->get();
+
+                    // Get currently assigned status code for this workorder (if exists)
+                    $selectedStatus = DB::table('wo_workorder_status')
+                        ->where('workorder_id', $workorderId)
+                        ->where('processstep_id', $process_id)
+                        ->orderByDesc('assigned_at')
+                        ->value('status_code');
+
+                    return response()->json([
+                        'statusDescription' => $description,
+                        'selected_status_code' => $selectedStatus
+                    ]);
+                }
+
+
+                
+            public function get_user(Request $request)
+                {
+                    $companyname = $request->input('company_name');
+                    $workorderId = $request->input('workorder_id');
+
+                    Log::info('Fetching users by company and workorder', [
+                        'company_name' => $companyname,
+                        'workorder_id' => $workorderId
+                    ]);
+
+                    // Get company ID
+                    $company_id = DB::table('wo_company')
+                        ->where('company_name', $companyname)
+                        ->value('id');
+
+                    if (!$company_id) {
+                        return response()->json(['companydescription' => [], 'assigned_user_id' => null]);
+                    }
+
+                    // Get users under that company
+                    $users = DB::table('wo_user')
+                        ->where('companyid', $company_id)
+                        ->select('id as user_id', 'username as user_name')
+                        ->get();
+
+                    // Get assigned user for this work order
+                  $assignedUserId = DB::table('wo_workorder_status')
+                    ->where('workorder_id', $workorderId)
+                    ->orderByDesc('assigned_at')
+                    ->value('assigned_to_user_id');
+                   
+                    return response()->json([
+                        'companydescription' => $users,
+                        'assigned_user_id' => $assignedUserId
+                      
+                    ]);
+                }
+
+         public function updates(Request $request)
+        {
+            $validated = $request->validate([
+                'workorder_id' => 'required|exists:wo_workorder,workorder_id',
+                'process_step' => 'required|string',
+                'status_code' => 'required|string',
+                'company_name' => 'required|string',
+                'username' => 'required|string',
+            ]);
+
+            $workorder = DB::table('wo_workorder')->where('workorder_id', $request->workorder_id)->first();
+
+            if (!$workorder) {
+                return redirect()->back()->with('error', 'Work order not found.');
+            }
+
+            DB::table('wo_workorder')
+                ->where('workorder_id', $request->workorder_id)
+                ->update([
+                    'process_step' => $request->process_step,
+                    'status_code' => $request->status_code,
+                    'company_name' => $request->company_name,
+                    'assigned_to' => $request->username,
+                    'updated_at' => now(),
+                ]);
+
+            return redirect()->route('workorder.index')->with('success', 'Work order updated successfully.');
+        }
+
+
+
+}
